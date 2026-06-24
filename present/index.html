@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+
+	<title></title>
+
+	<link rel="stylesheet" href="dist/reveal.css">
+	<link rel="stylesheet" href="dist/theme/white.css" id="theme">
+
+	<link rel="stylesheet" href="dist/plugin/highlight/monokai.css">
+	<link rel="stylesheet" href="dist/custom.css">
+</head>
+
+<body>
+
+	<div class="reveal">
+		<div class="custom-footer">
+			<div class="footer-left" id="footer-left">
+
+				<!-- <img src="logo.svg" class="footer-logo"> -->
+			</div>
+			<div class="footer-center" id="footer-center"></div>
+			<div class="footer-right">
+			</div>
+		</div>
+		<div class="slides" id="slidegoer">
+		
+
+			<!-- Use external markdown resource, separate slides by three newlines; vertical slides by two newlines -->
+			<section data-markdown="slides.md"></section>
+
+		</div>
+	</div>
+
+	<script src="dist/reveal.js"></script>
+	<script src="dist/plugin/markdown/markdown.js"></script>
+	<script src="dist/plugin/highlight/highlight.js"></script>
+	<script src="dist/plugin/notes/notes.js"></script>
+	<script src="dist/plugin/math/math.js"></script>
+
+	<script>
+		const urlParams = new URLSearchParams(window.location.search);
+		const mdSource = urlParams.get('md') || "slides.md";
+
+		async function loadMarkdownAndReveal() {
+			try {
+				const mdResp = await fetch(mdSource)
+				if (!mdResp.ok) throw new Error("HTTP " + mdResp.status);
+				let mdText = await mdResp.text()
+
+				let fmContent = "";
+				let remainingMd = mdText;
+				
+				// Optional: Strip Windows carriage returns
+				mdText = mdText.replace(/\r\n/g, '\n');
+
+				// Parse Front Matter
+				const fmMatch = mdText.match(/^-{3,}\s*\n([\s\S]*?)\n-{3,}\s*\n/);
+				if (fmMatch) {
+					fmContent = fmMatch[1];
+					remainingMd = mdText.substring(fmMatch[0].length);
+				}
+
+				const config = {};
+				fmContent.split('\n').forEach(line => {
+					// Ignore comments or empty lines
+					const trimmedLine = line.trim();
+					if (!trimmedLine || trimmedLine.startsWith('#')) return;
+
+					const splitIdx = line.indexOf(':');
+					if (splitIdx > 0) {
+						const key = line.substring(0, splitIdx).trim();
+						let val = line.substring(splitIdx + 1).trim();
+						// Remove inline comments starting with '#' if they clearly aren't part of a string
+						const hashIdx = val.indexOf('#');
+						if (hashIdx > 0 && !((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))) {
+							// Basic check to see if '#' is outside quotes. If unquoted, strip everything after `#`
+							val = val.substring(0, hashIdx).trim();
+						}
+						
+						// Remove surrounding quotes if present
+						if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+							val = val.substring(1, val.length - 1);
+						}
+						config[key] = val;
+					}
+				});
+
+				// Set Footers
+				if (config['footer_center']) {
+					document.getElementById("footer-center").textContent = config['footer_center']
+				}
+				if (config['footer_left']) {
+					document.getElementById("footer-left").textContent = config['footer_left']
+				}
+				
+				// Set Document Title
+				if (config['title']) {
+					document.title = config['title']
+				} else if (config['footer_center']) {
+					document.title = config['footer_center']
+				}
+
+				// Build the first slide HTML injected directly back into the Markdown
+				let firstSlide = `<!-- .slide: data-state="no-footer" -->\n`;
+				
+				if (config['logo_left']) {
+					firstSlide += `<div class="logo-left"><img src="${config['logo_left']}" alt="Logo Left"></div>\n`;
+				}
+				if (config['logo_right']) {
+					firstSlide += `<div class="logo-right"><img src="${config['logo_right']}" alt="Logo Right"></div>\n`;
+				}
+				
+				firstSlide += `<div style="text-align: center;" class="firstslide">\n`;
+				if (config['cover_picture']) {
+					firstSlide += `  <img src="${config['cover_picture']}" class="cover-image" alt="Cover Image">\n`;
+				}
+				if (config['main_title']) {
+					firstSlide += `  <h1 class="main-title">${config['main_title']}</h1>\n`;
+				}
+				if (config['subtitle']) {
+					firstSlide += `  <h4 class="subtitle">${config['subtitle']}</h4>\n`;
+				}
+				if (config['sub_subtitle']) {
+					firstSlide += `  <p class="sub-subtitle"><small>${config['sub_subtitle']}</small></p>\n`;
+				}
+				firstSlide += `  <br/>\n`;
+				if (config['event_name']) {
+					firstSlide += `  <h5 class="sub-subtitle">${config['event_name']}</h5>\n`;
+				}
+				if (config['event_subtitle']) {
+					firstSlide += `  <p class="sub-subtitle"><small>${config['event_subtitle']}</small></p>\n`;
+				}
+				firstSlide += `</div>\n`;
+
+				const finalMd = firstSlide + "\n---\n\n" + remainingMd;
+
+				// Insert as an embedded template into the section to avoid revealjs auto-fetching the file
+				const section = document.querySelector('section[data-markdown]');
+				section.setAttribute('data-markdown', ''); // Keep it but empty so revealjs reads the content
+				section.setAttribute('data-separator', "^---$");
+				section.setAttribute('data-separator-vertical', "^---$");
+				
+				const scriptTemplate = document.createElement('script');
+				scriptTemplate.type = 'text/template';
+				scriptTemplate.textContent = finalMd;
+				section.appendChild(scriptTemplate);
+
+				// Initialize Reveal JS
+				Reveal.initialize({
+					controls: "speaker-only",
+					progress: false,
+					slideNumber: "c/t",
+					history: true,
+					width: 1060,
+					height: 700,
+					center: false,
+
+					minScale: 0.2,
+					maxScale: 2.0,
+					plugins: [RevealMarkdown, RevealHighlight, RevealNotes, RevealMath.KaTeX]
+				}).then(() => {
+					const shrinkSelector = '*';
+					const minScale = 0.5;
+
+					function getShrinkTargets(slide) {
+						return Array.from(slide.querySelectorAll(shrinkSelector)).filter(el => {
+							if (el.closest('.katex')) return false;
+							if (['IMG', 'VIDEO', 'IFRAME', 'SVG', 'PATH'].includes(el.tagName)) return false;
+
+							return Number.isFinite(parseFloat(window.getComputedStyle(el).fontSize));
+						});
+					}
+
+					function resetSlideText(slide) {
+						getShrinkTargets(slide).forEach(el => {
+							if (!el.dataset.originalFontSize) {
+								el.dataset.originalFontSize = window.getComputedStyle(el).fontSize;
+							}
+							el.style.fontSize = el.dataset.originalFontSize;
+						});
+
+						const title = slide.querySelector(':scope > h1:first-child, :scope > h2:first-child, :scope > h3:first-child');
+						if (title) {
+							if (!title.dataset.originalWhiteSpace) {
+								title.dataset.originalWhiteSpace = title.style.whiteSpace || '';
+							}
+							title.style.whiteSpace = 'nowrap';
+						}
+					}
+
+					function scaleSlideText(slide, scale) {
+						getShrinkTargets(slide).forEach(el => {
+							const originalSize = parseFloat(el.dataset.originalFontSize || window.getComputedStyle(el).fontSize);
+							el.style.fontSize = `${Math.max(originalSize * scale, 12)}px`;
+						});
+					}
+
+					function slideOverflows(slide) {
+						if (slide.scrollHeight > slide.clientHeight || slide.scrollWidth > slide.clientWidth) {
+							return true;
+						}
+
+						const slideRect = slide.getBoundingClientRect();
+						const tolerance = 1;
+						return Array.from(slide.children).some(child => {
+							const childRect = child.getBoundingClientRect();
+							return childRect.bottom > slideRect.bottom + tolerance || childRect.right > slideRect.right + tolerance;
+						});
+					}
+
+					function shrinkSlideToFit(slide) {
+						if (!slide) return;
+
+						resetSlideText(slide);
+
+						let scale = 1;
+						while (slideOverflows(slide) && scale > minScale) {
+							scale -= 0.02;
+							scaleSlideText(slide, scale);
+						}
+
+						const title = slide.querySelector(':scope > h1:first-child, :scope > h2:first-child, :scope > h3:first-child');
+						if (title && title.scrollWidth > title.clientWidth) {
+							title.style.whiteSpace = title.dataset.originalWhiteSpace || '';
+							while (slideOverflows(slide) && scale > minScale) {
+								scale -= 0.02;
+								scaleSlideText(slide, scale);
+							}
+						}
+					}
+
+					let shrinkFrame = null;
+					function scheduleShrinkAllSlides() {
+						cancelAnimationFrame(shrinkFrame);
+						shrinkFrame = requestAnimationFrame(() => {
+							Reveal.getSlides().forEach(shrinkSlideToFit);
+						});
+					}
+
+					function scheduleShrinkRetry() {
+						scheduleShrinkAllSlides();
+						setTimeout(scheduleShrinkAllSlides, 50);
+						setTimeout(scheduleShrinkAllSlides, 250);
+					}
+
+					scheduleShrinkRetry();
+					Reveal.on('slidechanged', scheduleShrinkRetry);
+					window.addEventListener('resize', scheduleShrinkRetry);
+					window.addEventListener('beforeprint', scheduleShrinkRetry);
+					if (document.fonts && document.fonts.ready) {
+						document.fonts.ready.then(scheduleShrinkRetry);
+					}
+					document.querySelectorAll('.reveal .slides img').forEach(img => {
+						if (!img.complete) {
+							img.addEventListener('load', scheduleShrinkRetry, { once: true });
+						}
+					});
+				});
+
+			} catch (e) {
+				document.querySelector(".reveal").innerHTML = `<p style="color: red; text-align: left; margin-top: 20%; font-size:1em; z-index: 9999; position: relative;">Error loading markdown from given url: ${e.message}</p>`;
+			}
+		}
+		loadMarkdownAndReveal();
+
+	</script>
+
+</body>
+
+</html>

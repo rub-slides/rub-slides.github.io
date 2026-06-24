@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RUB Markdown Slides</title>
+    <meta name="description" content="Render and present Ruhr-University Bochum (RUB) themed Markdown slides." />
+    <meta name="application-name" content="RUB Slides" />
+    <meta name="theme-color" content="#17365c" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/png" href="https://rub-slides.github.io/present/dist/favicon.png" />
+    <link rel="apple-touch-icon" href="https://rub-slides.github.io/present/dist/favicon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://rub-slides.github.io/" />
+    <meta property="og:site_name" content="RUB Slides" />
+    <meta property="og:title" content="RUB Markdown Slides" />
+    <meta property="og:description" content="Render and present Ruhr-University Bochum (RUB) themed Markdown slides easily." />
+    <meta property="og:image" content="https://rub-slides.github.io/present/dist/favicon.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="RUB Slides logo" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="RUB Markdown Slides" />
+    <meta name="twitter:description" content="Render and present Ruhr-University Bochum (RUB) themed Markdown slides." />
+    <meta name="twitter:image" content="https://rub-slides.github.io/present/dist/favicon.png" />
+    <meta name="twitter:image:alt" content="RUB Slides logo" />
+    <style>
+        @font-face {
+            font-family: 'Adwaita Sans';
+            src: url('./present/dist/theme/fonts/AdwaitaSans-Regular.ttf') format('truetype');
+        }
+        body { 
+            font-family: 'Adwaita Sans', Helvetica, Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            line-height: 1.6; 
+            color: #17365c; 
+        }
+        h1, h2 { color: #17365c; }
+        a { color: #8dae10; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+        input[type="text"] { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0 20px 0; 
+            font-size: 16px; 
+            border: 2px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+        }
+        input[type="text"]:focus { border-color: #8dae10; outline: none; }
+        button { 
+            background-color: #17365c; 
+            color: white; 
+            padding: 12px 24px; 
+            font-size: 16px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin-right: 10px; 
+            font-weight: bold;
+        }
+        button.secondary { background-color: #8dae10; color: #17365c; }
+        button:hover { opacity: 0.9; }
+        .container { 
+            background: #f4f6f8; 
+            padding: 25px; 
+            border-radius: 8px; 
+            margin-top: 30px; 
+            border-left: 5px solid #8dae10;
+        }
+        code, pre { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+        pre { padding: 15px; overflow-x: auto; }
+        
+        /* Modal Overlay */
+        #pdfModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            text-align: center;
+            border-top: 5px solid #17365c;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 { margin-top: 0; }
+        .modal-btn { display: inline-block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>RUB Markdown Slides Generator</h1>
+    <p>Create beautiful, university-branded Reveal.js presentations directly from Markdown!</p>
+    
+    <div class="container">
+        <h2>Load from HedgeDoc Pad</h2>
+        <p>You can use a HedgeDoc pad (we suggest <a href="https://md.fachschaften.org" target="_blank">md.fachschaften.org</a>) to write and collaborate on your slides online.</p>
+        <p>Sample slides: <a href="https://md.fachschaften.org/WM4DIek2QVKHnfx5mRwPFA?both" target="_blank">https://md.fachschaften.org/WM4DIek2QVKHnfx5mRwPFA</a></p>
+        
+        <label for="padUrl"><strong>Enter your HedgeDoc Pad URL:</strong></label>
+        <input type="text" id="padUrl" placeholder="https://md.fachschaften.org/WM4DIek2QVKHnfx5mRwPFA" />
+        
+        <button onclick="openSlides(false)">Open Presentation</button>
+        <button class="secondary" onclick="openSlides(true)">Download PDF</button>
+    </div>
+
+    <div class="container">
+        <h2>Offline Usage & Source Code</h2>
+        <p>Offline usage is easily possible! Simply clone the directory, modify the <code>slides.md</code> file, and serve via any basic webserver. For example, using Python:</p>
+        <pre><code>python3 -m http.server</code></pre>
+        <p>Source Code is available:</p>
+        <p><a href="https://git.noc.ruhr-uni-bochum.de/slides/rub-slides.github.io" target="_blank">https://git.noc.ruhr-uni-bochum.de/slides/rub-markdown-slides</a></p>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; font-size: 0.8em; color: #666;">
+        <p><i>Note: This project is community-made and is not an official service of the Ruhr-Universität Bochum.</i></p>
+    </div>
+
+    <!-- PDF Instructions Modal -->
+    <div id="pdfModal">
+        <div class="modal-content">
+            <h3>How to Save as PDF</h3>
+            <p>Your presentation will open in <strong>Print Mode</strong>.</p>
+            <p>Wait for it to load, then press <strong>CTRL + P</strong> (or CMD + P) to open the browser print dialog.</p>
+            <p>Select <strong>"Save as PDF"</strong> globally.</p>
+            <p><em>(Be sure to set margins to 'None' and enable background graphics for best results!)</em></p>
+            <button class="modal-btn secondary" onclick="closePdfModal()">Understood, continue</button>
+        </div>
+    </div>
+
+    <script>
+        let currentTargetUrl = '';
+
+        function processUrl(rawUrl) {
+            if (!rawUrl) return "";
+            let urlObj;
+            try {
+                // Ensure protocol is present for URL parsing
+                if (!/^https?:\/\//i.test(rawUrl)) {
+                    rawUrl = 'https://' + rawUrl;
+                }
+                urlObj = new URL(rawUrl);
+            } catch (e) {
+                return "";
+            }
+            
+            // Remove query params (?both, ?edit, ?view, etc.)
+            urlObj.search = '';
+            // Remove fragments/hashes
+            urlObj.hash = '';
+            
+            let finalUrl = urlObj.toString();
+            
+            // Remove trailing slash if present
+            if (finalUrl.endsWith('/')) {
+                finalUrl = finalUrl.slice(0, -1);
+            }
+            
+            // Auto append /download
+            if (!finalUrl.endsWith('/download')) {
+                finalUrl += '/download';
+            }
+            
+            return finalUrl;
+        }
+
+        function openSlides(isPdf) {
+            const inputUrl = document.getElementById('padUrl').value.trim();
+            if (!inputUrl) {
+                alert("Please enter a HedgeDoc pad URL.");
+                return;
+            }
+            
+            localStorage.setItem('savedPadUrl', inputUrl);
+            
+            const processedUrl = processUrl(inputUrl);
+            if (!processedUrl) {
+                alert("Invalid URL format.");
+                return;
+            }
+            
+            let target = `present/?md=${encodeURIComponent(processedUrl)}`;
+            if (isPdf) {
+                target = `present/?print-pdf&md=${encodeURIComponent(processedUrl)}`;
+                currentTargetUrl = target;
+                document.getElementById('pdfModal').style.display = 'flex';
+                return;
+            }
+            
+            window.open(target, '_blank');
+        }
+        
+        function closePdfModal() {
+            document.getElementById('pdfModal').style.display = 'none';
+            if(currentTargetUrl) {
+                window.open(currentTargetUrl, '_blank');
+                currentTargetUrl = '';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const padUrlInput = document.getElementById('padUrl');
+            const savedUrl = localStorage.getItem('savedPadUrl');
+            if (savedUrl) {
+                padUrlInput.value = savedUrl;
+            }
+            
+            padUrlInput.addEventListener('input', (e) => {
+                localStorage.setItem('savedPadUrl', e.target.value.trim());
+            });
+        });
+    </script>
+
+</body>
+</html>

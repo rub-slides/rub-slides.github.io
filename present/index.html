@@ -238,29 +238,44 @@
 					}
 
 					let shrinkFrame = null;
-					function scheduleShrinkAllSlides() {
+					let shrinkGeneration = 0;
+					function scheduleShrinkSlides(slides) {
 						cancelAnimationFrame(shrinkFrame);
 						shrinkFrame = requestAnimationFrame(() => {
-							Reveal.getSlides().forEach(shrinkSlideToFit);
+							slides.filter(Boolean).forEach(shrinkSlideToFit);
 						});
 					}
 
-					function scheduleShrinkRetry() {
-						scheduleShrinkAllSlides();
-						setTimeout(scheduleShrinkAllSlides, 50);
-						setTimeout(scheduleShrinkAllSlides, 250);
+					function scheduleShrinkRetry(slide = Reveal.getCurrentSlide()) {
+						const generation = ++shrinkGeneration;
+						const schedule = () => {
+							if (generation === shrinkGeneration) scheduleShrinkSlides([slide]);
+						};
+						schedule();
+						setTimeout(schedule, 50);
+						setTimeout(schedule, 250);
 					}
 
-					scheduleShrinkRetry();
-					Reveal.on('slidechanged', scheduleShrinkRetry);
-					window.addEventListener('resize', scheduleShrinkRetry);
-					window.addEventListener('beforeprint', scheduleShrinkRetry);
+					function scheduleShrinkAllRetry() {
+						const generation = ++shrinkGeneration;
+						const schedule = () => {
+							if (generation === shrinkGeneration) scheduleShrinkSlides(Reveal.getSlides());
+						};
+						schedule();
+						setTimeout(schedule, 50);
+						setTimeout(schedule, 250);
+					}
+
+					scheduleShrinkAllRetry();
+					Reveal.on('slidechanged', event => scheduleShrinkRetry(event.currentSlide));
+					window.addEventListener('resize', () => scheduleShrinkRetry());
+					window.addEventListener('beforeprint', scheduleShrinkAllRetry);
 					if (document.fonts && document.fonts.ready) {
-						document.fonts.ready.then(scheduleShrinkRetry);
+						document.fonts.ready.then(scheduleShrinkAllRetry);
 					}
 					document.querySelectorAll('.reveal .slides img').forEach(img => {
 						if (!img.complete) {
-							img.addEventListener('load', scheduleShrinkRetry, { once: true });
+							img.addEventListener('load', () => scheduleShrinkRetry(img.closest('section')), { once: true });
 						}
 					});
 				});

@@ -9,7 +9,7 @@
 
 		<style>
 			body {
-				font-family: Helvetica;
+				font-family: Inter, "Adwaita Sans", sans-serif;
 				font-size: 18px;
 			}
 
@@ -176,7 +176,7 @@
 				.speaker-controls-notes .value {
 					margin-top: 5px;
 					line-height: 1.4;
-					font-size: 1.2em;
+					font-size: max(18px, 1.2em);
 				}
 
 			/* Layout selector */
@@ -314,7 +314,7 @@
 			<div class="speaker-controls-time">
 				<h4 class="label">Time <span class="reset-button">Click to Reset</span></h4>
 				<div class="clock">
-					<span class="clock-value">0:00 AM</span>
+					<span class="clock-value">00:00</span>
 				</div>
 				<div class="timer">
 					<span class="hours-value">00</span><span class="minutes-value">:00</span><span class="seconds-value">:00</span>
@@ -494,7 +494,7 @@
 						notes.classList.remove( 'hidden' );
 						notesValue.style.whiteSpace = data.whitespace;
 						if( data.markdown ) {
-							notesValue.innerHTML = marked( data.notes );
+							notesValue.innerHTML = marked.parse( data.notes );
 						}
 						else {
 							notesValue.innerHTML = data.notes;
@@ -554,7 +554,7 @@
 					var urlSeparator = /\?/.test(data.url) ? '&' : '?';
 					var hash = '#/' + data.state.indexh + '/' + data.state.indexv;
 					var currentURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&postMessageEvents=true' + hash;
-					var upcomingURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&controls=false' + hash;
+					var upcomingURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&controls=false&speakerPreview=upcoming' + hash;
 
 					currentSlide = document.createElement( 'iframe' );
 					currentSlide.setAttribute( 'width', 1280 );
@@ -753,7 +753,7 @@
 
 						diff = now.getTime() - start.getTime();
 
-						clockEl.innerHTML = now.toLocaleTimeString( 'en-US', { hour12: true, hour: '2-digit', minute:'2-digit' } );
+						clockEl.innerHTML = now.toLocaleTimeString( undefined, { hour12: false, hour: '2-digit', minute:'2-digit' } );
 						_displayTime( hoursEl, minutesEl, secondsEl, diff );
 						if (timings !== null) {
 							_updatePacing(diff);

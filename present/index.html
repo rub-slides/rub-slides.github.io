@@ -43,6 +43,10 @@
 	<script>
 		const urlParams = new URLSearchParams(window.location.search);
 		const mdSource = urlParams.get('md') || "slides.md";
+		document.documentElement.classList.toggle(
+			'speaker-preview-upcoming',
+			urlParams.get('speakerPreview') === 'upcoming'
+		);
 
 		async function loadMarkdownAndReveal() {
 			try {
@@ -157,7 +161,7 @@
 					width: 1060,
 					height: 700,
 					center: false,
-
+					respondToHashChanges: false,
 					minScale: 0.2,
 					maxScale: 2.0,
 					plugins: [RevealMarkdown, RevealHighlight, RevealNotes, RevealMath.KaTeX]
@@ -168,6 +172,7 @@
 					function getShrinkTargets(slide) {
 						return Array.from(slide.querySelectorAll(shrinkSelector)).filter(el => {
 							if (el.closest('.katex')) return false;
+							if (el.closest('aside.notes')) return false;
 							if (['IMG', 'VIDEO', 'IFRAME', 'SVG', 'PATH'].includes(el.tagName)) return false;
 
 							return Number.isFinite(parseFloat(window.getComputedStyle(el).fontSize));

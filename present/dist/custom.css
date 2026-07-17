@@ -239,6 +239,29 @@ html.print-pdf .reveal ol {
   /* Allows clicks to pass through to slides if needed */
 }
 
+/* The upcoming speaker preview is much shorter than the presentation viewport.
+   Keep its footer proportional so it cannot cover the slide content. */
+html.speaker-preview-upcoming .custom-footer {
+  height: 36px;
+  padding: 0 25px;
+}
+
+html.speaker-preview-upcoming .footer-left,
+html.speaker-preview-upcoming .footer-center,
+html.speaker-preview-upcoming .footer-right {
+  font-size: 12px;
+}
+
+html.speaker-preview-upcoming .footer-logo {
+  height: 24px;
+}
+
+html.speaker-preview-upcoming .reveal .slide-number {
+  right: 25px !important;
+  bottom: 10px !important;
+  font-size: 12px !important;
+}
+
 /* Hide footer on specific slides */
 .no-footer .custom-footer,
 .no-footer .slide-number {

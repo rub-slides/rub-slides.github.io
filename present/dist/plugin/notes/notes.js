@@ -13,6 +13,22 @@
 				font-size: 18px;
 			}
 
+			/* KaTeX and MathJax render an accessible math copy alongside the
+			   visual one. Keep that copy available to assistive technology but
+			   prevent it from appearing as duplicated text in speaker notes. */
+			.katex .katex-mathml,
+			mjx-assistive-mml {
+				position: absolute !important;
+				width: 1px !important;
+				height: 1px !important;
+				padding: 0 !important;
+				margin: -1px !important;
+				overflow: hidden !important;
+				clip: rect(0, 0, 0, 0) !important;
+				white-space: nowrap !important;
+				border: 0 !important;
+			}
+
 			#current-slide,
 			#upcoming-slide,
 			#speaker-controls {
@@ -402,6 +418,8 @@
 					return;
 				}
 
+				copyMathStylesFromPresentation();
+
 				var connectionTimeout = setTimeout( function() {
 					connectionStatus.innerHTML = 'Error connecting to main window.<br>Please try closing and reopening the speaker view.';
 				}, 5000 );
@@ -461,6 +479,31 @@
 						methodName: methodName,
 						arguments: methodArguments
 					} ), '*' );
+
+				}
+
+				/**
+				 * The speaker popup is an about:blank document and does not inherit
+				 * stylesheets from the presentation. Copy math-specific styles so
+				 * KaTeX/MathJax notes retain their intended visual layout.
+				 */
+				function copyMathStylesFromPresentation() {
+
+					const presentationDocument = window.opener.document;
+					presentationDocument.querySelectorAll( 'link[rel="stylesheet"]' ).forEach( source => {
+						if( /katex|mathjax/i.test( source.href ) ) {
+							const link = document.createElement( 'link' );
+							link.rel = 'stylesheet';
+							link.href = source.href;
+							document.head.appendChild( link );
+						}
+					} );
+
+					presentationDocument.querySelectorAll( 'style' ).forEach( source => {
+						if( source.textContent.includes( '.katex' ) || /mjx-/i.test( source.textContent ) ) {
+							document.head.appendChild( source.cloneNode( true ) );
+						}
+					} );
 
 				}
 

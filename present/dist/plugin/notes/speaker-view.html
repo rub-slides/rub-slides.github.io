@@ -391,7 +391,11 @@
 					layoutDropdown,
 					pendingCalls = {},
 					lastRevealApiCallId = 0,
-					connected = false
+					connected = false,
+					lastStateApplyTime = 0,
+					pendingStateMessage = null,
+					stateApplyTimer = null,
+					appliedNotesKey = null
 
 				var connectionStatus = document.querySelector( '#connection-status' );
 
@@ -436,7 +440,14 @@
 					clearTimeout( connectionTimeout );
 					connectionStatus.style.display = 'none';
 
-					var data = JSON.parse( event.data );
+					var data;
+
+					// Ignore same-origin messages that aren't ours, e.g. from
+					// browser extensions or devtools
+					try {
+						data = JSON.parse( event.data );
+					}
+					catch ( error ) { return }
 
 					// The overview mode is only useful to the reveal.js instance
 					// where navigation occurs so we don't sync it
@@ -527,24 +538,69 @@
 
 				/**
 				 * Called when the main window sends an updated state.
+				 *
+				 * States are applied latest-wins: rapid sequences (e.g. a
+				 * held-down navigation key) are coalesced so that rendering
+				 * never backlogs and the final state is always applied.
+				 * A lone message is applied immediately; during bursts we
+				 * keep only the most recent state and apply it from a short
+				 * trailing timeout.
 				 */
 				function handleStateMessage( data ) {
 
-					// No need for updating the notes in case of fragment changes
-					if ( data.notes ) {
-						notes.classList.remove( 'hidden' );
-						notesValue.style.whiteSpace = data.whitespace;
-						if( data.markdown ) {
-							notesValue.innerHTML = marked.parse( data.notes );
+					var now = Date.now();
+
+					if( now - lastStateApplyTime > 33 && !stateApplyTimer ) {
+						lastStateApplyTime = now;
+						applyStateMessage( data );
+					}
+					else {
+						pendingStateMessage = data;
+						if( !stateApplyTimer ) {
+							stateApplyTimer = setTimeout( function() {
+								stateApplyTimer = null;
+								lastStateApplyTime = Date.now();
+								if( pendingStateMessage ) {
+									var pending = pendingStateMessage;
+									pendingStateMessage = null;
+									applyStateMessage( pending );
+								}
+							}, 33 );
 						}
-						else {
-							notesValue.innerHTML = data.notes;
+					}
+
+				}
+
+				/**
+				 * Renders a state message from the main window. The main
+				 * window is the single source of truth; the notes and both
+				 * preview frames are updated together from the same message
+				 * so they can never disagree with each other.
+				 */
+				function applyStateMessage( data ) {
+
+					if ( data.notes ) {
+						// Skip re-rendering when the notes are unchanged, e.g.
+						// when stepping through fragments of the same slide
+						var notesKey = ( data.markdown ? 'md:' : 'html:' ) + data.whitespace + ':' + data.notes;
+						if( notesKey !== appliedNotesKey ) {
+							appliedNotesKey = notesKey;
+							notes.classList.remove( 'hidden' );
+							notesValue.style.whiteSpace = data.whitespace;
+							if( data.markdown ) {
+								notesValue.innerHTML = marked.parse( data.notes );
+							}
+							else {
+								notesValue.innerHTML = data.notes;
+							}
+							scheduleFitSpeakerNotes();
 						}
 					}
 					else {
+						appliedNotesKey = null;
 						notes.classList.add( 'hidden' );
+						notesValue.innerHTML = '';
 					}
-					scheduleFitSpeakerNotes();
 
 					// Don't show lightboxes in the upcoming slide
 					const { previewVideo, previewImage, previewIframe, ...upcomingState } = data.state;
@@ -603,44 +659,67 @@
 				}
 
 				/**
-				 * Send navigation to the authoritative main deck and mirror the
-				 * same command locally so the speaker previews update immediately.
+				 * Send navigation to the authoritative main deck. The previews
+				 * are never navigated directly; they only follow the state
+				 * messages that the main deck posts back, so a command can
+				 * never leave the speaker view and the presentation showing
+				 * different slides.
 				 */
-				function dispatchNavigationCommand( method, args = [], updatePreviews = true ) {
+				function dispatchNavigationCommand( method, args = [] ) {
 
 					window.opener.postMessage( JSON.stringify({ method: method, args: args }), '*' );
-					if( !updatePreviews ) return;
-
-					const currentReveal = currentSlide && currentSlide.contentWindow.Reveal;
-					const upcomingReveal = upcomingSlide && upcomingSlide.contentWindow.Reveal;
-					if( !currentReveal || !currentReveal.isReady() || typeof currentReveal[method] !== 'function' ) return;
-
-					currentReveal[method].apply( currentReveal, args );
-					if( upcomingReveal && upcomingReveal.isReady() ) {
-						const { previewVideo, previewImage, previewIframe, ...currentPreviewState } = currentReveal.getState();
-						upcomingReveal.setState( currentPreviewState );
-						upcomingReveal.next();
-					}
 
 				}
 
 				/**
-				 * Forward keyboard events directly to the main presentation.
-				 * Keeping the main window authoritative avoids races with
-				 * state updates from the current-slide preview.
+				 * Forward keyboard events to the main presentation window.
+				 * This handler serves the speaker view document and both
+				 * preview iframe documents, so navigation works no matter
+				 * which part of the speaker view has focus.
 				 *
 				 * Block F5 default handling, it reloads and disconnects
 				 * the speaker notes window.
 				 */
+				function onSpeakerKeydown( event ) {
+
+					if( event.keyCode === 116 || ( event.metaKey && event.keyCode === 82 ) ) {
+						event.preventDefault();
+						return false;
+					}
+
+					// Don't steal keys from form controls, e.g. the layout dropdown
+					if( event.target && event.target.tagName && /select|input|textarea/i.test( event.target.tagName ) ) {
+						return;
+					}
+
+					const navigationKeys = [ 32, 33, 34, 35, 36, 37, 38, 39, 40, 72, 74, 75, 76, 78, 80 ];
+					if( navigationKeys.includes( event.keyCode ) ) {
+						event.preventDefault();
+					}
+
+					dispatchNavigationCommand( 'triggerKey', [ event.keyCode ] );
+
+				}
+
 				function setupKeyboard() {
 
-					document.addEventListener( 'keydown', function( event ) {
-						if( event.keyCode === 116 || ( event.metaKey && event.keyCode === 82 ) ) {
-							event.preventDefault();
-							return false;
+					document.addEventListener( 'keydown', onSpeakerKeydown );
+
+				}
+
+				/**
+				 * Keys pressed while a preview iframe has focus never reach
+				 * this document, so relay them from inside the frame. The
+				 * previews are loaded with keyboard=false and can therefore
+				 * never navigate themselves.
+				 */
+				function attachPreviewKeyboardRelay( frame ) {
+
+					frame.addEventListener( 'load', function() {
+						try {
+							frame.contentDocument.addEventListener( 'keydown', onSpeakerKeydown );
 						}
-						const navigationKeys = [ 32, 33, 34, 35, 36, 37, 38, 39, 40, 72, 74, 75, 76, 78, 80 ];
-						dispatchNavigationCommand( 'triggerKey', [ event.keyCode ], navigationKeys.includes( event.keyCode ) );
+						catch ( error ) { console.warn( error ) }
 					} );
 
 				}
@@ -656,22 +735,26 @@
 						'history=false',
 						'transition=none',
 						'autoSlide=0',
-						'backgroundTransition=none'
+						'backgroundTransition=none',
+						'keyboard=false',
+						'touch=false'
 					].join( '&' );
 
 					var urlSeparator = /\?/.test(data.url) ? '&' : '?';
 					var hash = '#/' + data.state.indexh + '/' + data.state.indexv;
 					var currentURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&postMessageEvents=true' + hash;
-					var upcomingURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&controls=false&speakerPreview=upcoming' + hash;
+					var upcomingURL = data.url + urlSeparator + params + '&scrollActivationWidth=false&controls=false&speakerPreview=upcoming&postMessageEvents=true' + hash;
 
 					currentSlide = document.createElement( 'iframe' );
 					currentSlide.addEventListener( 'load', setupCurrentSlideNavigation );
+					attachPreviewKeyboardRelay( currentSlide );
 					currentSlide.setAttribute( 'width', 1280 );
 					currentSlide.setAttribute( 'height', 1024 );
 					currentSlide.setAttribute( 'src', currentURL );
 					document.querySelector( '#current-slide' ).appendChild( currentSlide );
 
 					upcomingSlide = document.createElement( 'iframe' );
+					attachPreviewKeyboardRelay( upcomingSlide );
 					upcomingSlide.setAttribute( 'width', 640 );
 					upcomingSlide.setAttribute( 'height', 512 );
 					upcomingSlide.setAttribute( 'src', upcomingURL );
@@ -1026,37 +1109,6 @@
 
 					var str = '00' + parseInt( num );
 					return str.substring( str.length - 2 );
-
-				}
-
-				/**
-				 * Limits the frequency at which a function can be called.
-				 */
-				function debounce( fn, ms ) {
-
-					var lastTime = 0,
-						timeout;
-
-					return function() {
-
-						var args = arguments;
-						var context = this;
-
-						clearTimeout( timeout );
-
-						var timeSinceLastCall = Date.now() - lastTime;
-						if( timeSinceLastCall > ms ) {
-							fn.apply( context, args );
-							lastTime = Date.now();
-						}
-						else {
-							timeout = setTimeout( function() {
-								fn.apply( context, args );
-								lastTime = Date.now();
-							}, ms - timeSinceLastCall );
-						}
-
-					}
 
 				}
 
